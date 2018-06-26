@@ -269,6 +269,7 @@ def conn_process(event_queue, dut_event_queue, config):
                             event_queue.put((key, value, time()))
                             idx = sync_uuid_list.index(value)
                             logger.prn_inf("found SYNC in stream: {{%s;%s}} it is #%d sent, queued..."% (key, value, idx))
+                            connector.write_kv("hostAck","dummyData");
                         else:
                             logger.prn_err("found faulty SYNC in stream: {{%s;%s}}, ignored..."% (key, value))
                     else:
