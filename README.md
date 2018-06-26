@@ -243,10 +243,10 @@ Key-value protocol was developed and is used to provide communication layer betw
 * Protocol introduced is master-slave protocol, where master is host and slave is device under test.
 * Transport layer consist of simple ```{{ KEY ; VALUE }} \n``` text messages sent by slave (DUT). Both key and value are strings with allowed character set limitations (to simplify parsing and protocol parser itself). Message ends with required by DUT K-V parser `\n` character.
 * DUT always (except for handshake phase) initializes communication by sending key-value message to host.
-* To avoid miscommunication between master and slave simple handshake protocol is introduces:
+* To avoid miscommunication between master and slave simple handshake protocol is introduced:
     * Master (host) sends sync packet: ```{{__sync;UUID-STRING}}}``` with message value containing random UUID string.
     * DUT waits for ```{{__sync;...}}``` message in input stream and replies with the same packer ```{{__sync;...}}```.
-    * After correct sync packet is received by master, messages ```{{__timeout;%d}}``` and ```{{__host_test_name}}``` are expected.
+    * After correct sync packet is received by master, it sends DUT an acknowledgment (hostAck) message, and messages ```{{__timeout;%d}}``` and ```{{__host_test_name}}``` are expected.
   * Host parses DUTs tx stream and generates events sent to host test.
   * Each event is a tuple of ```(key, value, timestamp)```, where key and value are extracted from message and
 * Host tests are now driven by simple async feature. Event state machine on master side is used to process events from DUT. Each host test is capable of registering callbacks, functions which will be executed when event occur. Event name is identical with KEY in key-value pair send as event from/to DUT.
@@ -272,6 +272,7 @@ Key-value protocol was developed and is used to provide communication layer betw
       * ```__testcase_finish``` - sent by DUT, test case result.
       * ```__exit``` - sent by DUT, test suite execution finished.
       * ```__exit_event_queue``` - sent by host test, indicating no more events expected.
+      * ```__hstAk``` - sent by host to indicate that the sync key received from DUT is correct
   * Non-Reserved event/message keys have leading ```__``` in name:
     * ```__rxd_line``` - Event triggered when ```\n``` was found on DUT RXD channel. It can be overridden (```self.register_callback('__rxd_line', <callback_function>)```) and used by user. Event is sent by host test to notify a new line of text was received on RXD channel. ```__rxd_line``` event payload (value) in a line of text received from DUT over RXD.
 * Each host test (master side) has four functions used by async framework:
@@ -321,7 +322,8 @@ Hanshake between DUT and host is a sequence of ```__sync``` events send between 
 After reset:
 * DUT calls function ```GREENTEA_SETUP(timeout, "host test name");``` which
 * calls immediately ```greentea_parse_kv``` (blocking parse of input serial port for event ```{{__sync;UUID}}```).
-* When ```__sync``` packet is parsed in the stream DUT sends back (echoes) ```__sync``` event with the same [UUID](https://en.wikipedia.org/wiki/Universally_unique_identifier#Version_3_.28MD5_hash_.26_namespace.29) as payload. UUID is a random value e.g.  ```5f8dbbd2-199a-449c-b286-343a57da7a37```.
+* When ```__sync``` packet is parsed in the stream DUT sends back (echoes) ```__sync``` event with the same [UUID](https://en.wikipedia.org/wiki/Universally_unique_identifier#Version_3_.28MD5_hash_.26_namespace.29) as payload. UUID is a random value e.g.  ```5f8dbbd2-199a-449c-b286-343a57da7a37```. Once it sends back ```__sync``` event, it waits for an acknowledgment from Host ```{{__hstAk;abcd}}```) which indicates that the sync key received was correct. "abcd" here
+represents a random string that DUT/host does not care about.
 
 ```plain
                            DUT (slave)        host (master)
@@ -342,7 +344,14 @@ greentea_parse_kv(key,value)   |                   |
 greentea_parse_kv              |  {{__sync;UUID}}  |
 echoes __sync event with       |------------------>|
 the same UUID to master        |                   |
+                               |                   |self.send_kv("__hstAk", abcd)
+                               |  {{__hstAk;abcd}} |<-----------------------------
+                               |<------------------|
                                |                   |
+                               |                   |
+greentea_parse_kv              |{{__hstAk;abcd}}   |
+echoes __hstAk event           |------------------>|
+to master                      |                   |
 ```
 
 Example of handshake from ```htrun``` log:
@@ -357,9 +366,18 @@ void GREENTEA_SETUP(const int timeout, const char *host_test_name) {
 	while (1) {
         greentea_parse_kv(_key, _value, sizeof(_key), sizeof(_value));
         if (strcmp(_key, GREENTEA_TEST_ENV_SYNC) == 0) {
-            // Found correct __sunc message
-            greentea_send_kv(_key, _value);
-            break;
+            // Send back the key to Host and wait for acknowledgment
+            greentea_send_kv(_key, buffer);
+        }
+        /**
+          *  Once the host key is parsed, we would send back that key to host and wait 
+          *  for an acknowledgment from host that the key we sent back is correct. If we dont
+          *  get back the ack, we keep waiting and parse values further until we get the ack. This
+          *  is to take care of issues when we encounter old keys in buffer and assume them to be right ones.
+          */
+        if (strcmp(_key, GREENTEA_TEST_HOST_ACK) == 0) {
+            greentea_send_kv(_key, buffer);
+            runTests = true;
         }
     }
 
@@ -372,14 +390,15 @@ void GREENTEA_SETUP(const int timeout, const char *host_test_name) {
 ```
 * Corresponding log:
 ```
-[1458565465.35][SERI][INF] reset device using 'default' plugin...
-[1458565465.60][SERI][INF] wait for it...
-[1458565466.60][CONN][INF] sending preamble '2f554b1c-bbbf-4b1b-b1f0-f45493282f2c'
-[1458565466.60][SERI][TXD] mbedmbedmbedmbedmbedmbedmbedmbedmbedmbed
-[1458565466.60][SERI][TXD] {{__sync;2f554b1c-bbbf-4b1b-b1f0-f45493282f2c}}
-[1458565466.74][CONN][INF] found SYNC in stream: {{__sync;2f554b1c-bbbf-4b1b-b1f0-f45493282f2c}}, queued...
-[1458565466.74][HTST][INF] sync KV found, uuid=2f554b1c-bbbf-4b1b-b1f0-f45493282f2c, timestamp=1458565466.743000
-[1458565466.74][CONN][RXD] {{__sync;2f554b1c-bbbf-4b1b-b1f0-f45493282f2c}}
+[1530040532.96][GLRM][INF] remote resources reset...
+[1530040535.26][GLRM][TXD] mbedmbedmbedmbedmbedmbedmbedmbedmbedmbed
+[1530040535.26][CONN][INF] sending up to 5 __sync packets (specified with --sync=5)
+[1530040535.26][CONN][INF] sending preamble 'f1ee68c1-86f4-4025-a5af-e755e03802c6'
+[1530040535.26][GLRM][TXD] {{__sync;f1ee68c1-86f4-4025-a5af-e755e03802c6}}
+[1530040536.32][CONN][RXD] Host Key parsed
+[1530040536.43][CONN][INF] found SYNC in stream: {{__sync;f1ee68c1-86f4-4025-a5af-e755e03802c6}} it is #0 sent, queued...
+[1530040536.43][GLRM][TXD] {{__hstAk;abcd}}
+[1530040536.44][HTST][INF] sync KV found, uuid=f1ee68c1-86f4-4025-a5af-e755e03802c6, timestamp=1530040536.432000
 ```
 
 ## Preamble exchange
