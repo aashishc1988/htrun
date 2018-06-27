@@ -272,7 +272,7 @@ Key-value protocol was developed and is used to provide communication layer betw
       * ```__testcase_finish``` - sent by DUT, test case result.
       * ```__exit``` - sent by DUT, test suite execution finished.
       * ```__exit_event_queue``` - sent by host test, indicating no more events expected.
-      * ```__hstAk``` - sent by host to indicate that the sync key received from DUT is correct
+      * ```__host_ack``` - sent by host to indicate that the sync key received from DUT is correct
   * Non-Reserved event/message keys have leading ```__``` in name:
     * ```__rxd_line``` - Event triggered when ```\n``` was found on DUT RXD channel. It can be overridden (```self.register_callback('__rxd_line', <callback_function>)```) and used by user. Event is sent by host test to notify a new line of text was received on RXD channel. ```__rxd_line``` event payload (value) in a line of text received from DUT over RXD.
 * Each host test (master side) has four functions used by async framework:
@@ -322,7 +322,7 @@ Hanshake between DUT and host is a sequence of ```__sync``` events send between 
 After reset:
 * DUT calls function ```GREENTEA_SETUP(timeout, "host test name");``` which
 * calls immediately ```greentea_parse_kv``` (blocking parse of input serial port for event ```{{__sync;UUID}}```).
-* When ```__sync``` packet is parsed in the stream DUT sends back (echoes) ```__sync``` event with the same [UUID](https://en.wikipedia.org/wiki/Universally_unique_identifier#Version_3_.28MD5_hash_.26_namespace.29) as payload. UUID is a random value e.g.  ```5f8dbbd2-199a-449c-b286-343a57da7a37```. Once it sends back ```__sync``` event, it waits for an acknowledgment from Host ```{{__hstAk;abcd}}```) which indicates that the sync key received was correct. "abcd" here
+* When ```__sync``` packet is parsed in the stream DUT sends back (echoes) ```__sync``` event with the same [UUID](https://en.wikipedia.org/wiki/Universally_unique_identifier#Version_3_.28MD5_hash_.26_namespace.29) as payload. UUID is a random value e.g.  ```5f8dbbd2-199a-449c-b286-343a57da7a37```. Once it sends back ```__sync``` event, it waits for an acknowledgment from Host ```{{__host_ack;abcd}}```) which indicates that the sync key received was correct. "abcd" here
 represents a random string that DUT/host does not care about.
 
 ```plain
@@ -344,13 +344,13 @@ greentea_parse_kv(key,value)   |                   |
 greentea_parse_kv              |  {{__sync;UUID}}  |
 echoes __sync event with       |------------------>|
 the same UUID to master        |                   |
-                               |                   |self.send_kv("__hstAk", abcd)
-                               |  {{__hstAk;abcd}} |<-----------------------------
+                               |                   |self.send_kv("__host_ack", abcd)
+                               |{{__host_ack;abcd}}|<-----------------------------
                                |<------------------|
                                |                   |
                                |                   |
-greentea_parse_kv              |{{__hstAk;abcd}}   |
-echoes __hstAk event           |------------------>|
+greentea_parse_kv              |{{__host_ack;abcd}}|
+echoes __host_ack event        |------------------>|
 to master                      |                   |
 ```
 
@@ -397,7 +397,7 @@ void GREENTEA_SETUP(const int timeout, const char *host_test_name) {
 [1530040535.26][GLRM][TXD] {{__sync;f1ee68c1-86f4-4025-a5af-e755e03802c6}}
 [1530040536.32][CONN][RXD] Host Key parsed
 [1530040536.43][CONN][INF] found SYNC in stream: {{__sync;f1ee68c1-86f4-4025-a5af-e755e03802c6}} it is #0 sent, queued...
-[1530040536.43][GLRM][TXD] {{__hstAk;abcd}}
+[1530040536.43][GLRM][TXD] {{__host_ack;abcd}}
 [1530040536.44][HTST][INF] sync KV found, uuid=f1ee68c1-86f4-4025-a5af-e755e03802c6, timestamp=1530040536.432000
 ```
 
