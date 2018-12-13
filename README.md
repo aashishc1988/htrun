@@ -363,7 +363,7 @@ void GREENTEA_SETUP(const int timeout, const char *host_test_name) {
 	// Wait for SYNC and echo it back
         char _key[8] = {0};
 	char _value[48] = {0};
-	while (1) {
+	while (!runTests) {
         greentea_parse_kv(_key, _value, sizeof(_key), sizeof(_value));
         if (strcmp(_key, GREENTEA_TEST_ENV_SYNC) == 0) {
             // Send back the key to Host and wait for acknowledgment
@@ -395,9 +395,8 @@ void GREENTEA_SETUP(const int timeout, const char *host_test_name) {
 [1530040535.26][CONN][INF] sending up to 5 __sync packets (specified with --sync=5)
 [1530040535.26][CONN][INF] sending preamble 'f1ee68c1-86f4-4025-a5af-e755e03802c6'
 [1530040535.26][GLRM][TXD] {{__sync;f1ee68c1-86f4-4025-a5af-e755e03802c6}}
-[1530040536.32][CONN][RXD] Host Key parsed
 [1530040536.43][CONN][INF] found SYNC in stream: {{__sync;f1ee68c1-86f4-4025-a5af-e755e03802c6}} it is #0 sent, queued...
-[1530040536.43][GLRM][TXD] {{__host_ack;abcd}}
+[1530040536.43][GLRM][TXD] {{__host_ack;f1ee68c1-86f4-4025-a5af-e755e03802c6}}
 [1530040536.44][HTST][INF] sync KV found, uuid=f1ee68c1-86f4-4025-a5af-e755e03802c6, timestamp=1530040536.432000
 ```
 
