@@ -344,12 +344,12 @@ greentea_parse_kv(key,value)   |                   |
 greentea_parse_kv              |  {{__sync;UUID}}  |
 echoes __sync event with       |------------------>|
 the same UUID to master        |                   |
-                               |                   |self.send_kv("__host_ack", abcd)
-                               |{{__host_ack;abcd}}|<-----------------------------
+                               |                   |self.send_kv("__host_ack", UUID)
+                               |{{__host_ack;UUID}}|<-----------------------------
                                |<------------------|
                                |                   |
                                |                   |
-greentea_parse_kv              |{{__host_ack;abcd}}|
+greentea_parse_kv              |{{__host_ack;UUID}}|
 echoes __host_ack event        |------------------>|
 to master                      |                   |
 ```
