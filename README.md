@@ -322,8 +322,7 @@ Hanshake between DUT and host is a sequence of ```__sync``` events send between 
 After reset:
 * DUT calls function ```GREENTEA_SETUP(timeout, "host test name");``` which
 * calls immediately ```greentea_parse_kv``` (blocking parse of input serial port for event ```{{__sync;UUID}}```).
-* When ```__sync``` packet is parsed in the stream DUT sends back (echoes) ```__sync``` event with the same [UUID](https://en.wikipedia.org/wiki/Universally_unique_identifier#Version_3_.28MD5_hash_.26_namespace.29) as payload. UUID is a random value e.g.  ```5f8dbbd2-199a-449c-b286-343a57da7a37```. Once it sends back ```__sync``` event, it waits for an acknowledgment from Host ```{{__host_ack;abcd}}```) which indicates that the sync key received was correct. "abcd" here
-represents a random string that DUT/host does not care about.
+* When ```__sync``` packet is parsed in the stream DUT sends back (echoes) ```__sync``` event with the same [UUID](https://en.wikipedia.org/wiki/Universally_unique_identifier#Version_3_.28MD5_hash_.26_namespace.29) as payload. UUID is a random value e.g.  ```5f8dbbd2-199a-449c-b286-343a57da7a37```. Once it sends back ```__sync``` event, it waits for an acknowledgment from Host ```{{__host_ack;5f8dbbd2-199a-449c-b286-343a57da7a37}}```) which indicates that the sync key received was correct.
 
 ```plain
                            DUT (slave)        host (master)
