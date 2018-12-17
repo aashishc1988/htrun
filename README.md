@@ -348,9 +348,9 @@ the same UUID to master        |                   |
                                |<------------------|
                                |                   |
                                |                   |
-greentea_parse_kv              |{{__host_ack;UUID}}|
-echoes __host_ack event        |------------------>|
-to master                      |                   |
+                               |                   |
+                               |                   |
+                               |                   |
 ```
 
 Example of handshake from ```htrun``` log:
